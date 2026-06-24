@@ -1,0 +1,32 @@
+body{
+font-family:Arial;
+text-align:center;
+background:#f5f5f5;
+}
+
+.container{
+width:400px;
+margin:50px auto;
+background:white;
+padding:20px;
+border-radius:10px;
+box-shadow:0 0 10px #ccc;
+}
+
+button{
+padding:10px 20px;
+margin:10px;
+cursor:pointer;
+}
+
+select,input{
+width:100%;
+padding:10px;
+margin:10px 0;
+}
+
+#downloadBtn{
+display:none;
+background:green;
+color:white;
+}
