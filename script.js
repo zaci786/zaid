@@ -14,7 +14,7 @@ function loadMonths(){
   document.getElementById("monthArea").innerHTML = '<div class="loader"></div>';
   document.getElementById("studentArea").innerHTML = "";
   document.getElementById("loginArea").innerHTML = "";
-  document.getElementById("downloadBtn").style.display = "none";
+  document.getElementById("downloadOptions").classList.add("hidden");
 
   fetch(RESULT_API + "?action=months")
     .then(r => r.json())
@@ -33,7 +33,7 @@ function loadMonths(){
 function loadStudents(){
   document.getElementById("studentArea").innerHTML = '<div class="loader"></div>';
   document.getElementById("loginArea").innerHTML = "";
-  document.getElementById("downloadBtn").style.display = "none";
+  document.getElementById("downloadOptions").classList.add("hidden");
 
   let month = document.getElementById("monthSelect").value;
 
@@ -54,20 +54,21 @@ function loadStudents(){
 }
 
 function login(){
+  let month = document.getElementById("monthSelect").value;
   let name = document.getElementById("studentSelect").value;
   let password = document.getElementById("password").value;
 
   document.getElementById("loginArea").innerHTML = '<div class="loader"></div>';
 
-  fetch(RESULT_API + `?action=login&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`)
+  fetch(RESULT_API + `?action=login&month=${encodeURIComponent(month)}&name=${encodeURIComponent(name)}&password=${encodeURIComponent(password)}`)
     .then(r => r.json())
     .then(data => {
       document.getElementById("loginArea").innerHTML = "";
 
       if (data.success){
-        let btn = document.getElementById("downloadBtn");
-        btn.href = data.image;
-        btn.style.display = "inline-block";
+        document.getElementById("downloadDiploma").href = data.diploma;
+        document.getElementById("downloadMarksheet").href = data.marksheet;
+        document.getElementById("downloadOptions").classList.remove("hidden");
       } else {
         alert("Wrong Password");
       }
@@ -114,6 +115,126 @@ if (studentForm && submitBtn){
   });
 }
 
+/* ============================================
+   Certificate Verification — checks a Certificate
+   ID against your Google Sheet via Apps Script.
+   Replace CERT_API below with your deployed
+   Apps Script Web App URL (see setup instructions).
+   ============================================ */
+const CERT_API = "https://script.google.com/macros/s/AKfycbz6HMWZWj52Pa_SJqwGarOws712wKNdTSty67HPWmIpluy4eSzcto0VODoYczNUGMeT/exec";
+
+function verifyCertificate(){
+  const certId = document.getElementById("certId").value.trim();
+  const resultArea = document.getElementById("certResult");
+
+  if (!certId){
+    resultArea.innerHTML = '<p style="color:var(--muted);font-size:0.85rem;">Please enter a Certificate ID.</p>';
+    return;
+  }
+
+  resultArea.innerHTML = '<div class="loader"></div>';
+
+  fetch(CERT_API + `?certId=${encodeURIComponent(certId)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.found){
+        resultArea.innerHTML = `
+          <div class="cert-result valid">
+            <p class="cert-status">✅ Valid Certificate</p>
+            <p><strong>Name:</strong> ${data.name}</p>
+            <p><strong>Course:</strong> ${data.course}</p>
+            <p><strong>Issue Date:</strong> ${data.issueDate}</p>
+            <p><strong>Status:</strong> ${data.status}</p>
+          </div>`;
+      } else {
+        resultArea.innerHTML = `
+          <div class="cert-result invalid">
+            <p class="cert-status">❌ Certificate Not Found</p>
+            <p>Please check the Certificate ID and try again.</p>
+          </div>`;
+      }
+    })
+    .catch(() => {
+      resultArea.innerHTML =
+        '<p style="color:var(--muted);font-size:0.85rem;">Verification service is not available right now. Please try again later.</p>';
+    });
+}
+
+/* ============================================
+   Student Status — login checks username/password
+   against your "Status" Google Sheet via Apps Script,
+   then displays enrollment + fee details.
+   Replace STATUS_API below with your deployed
+   Apps Script Web App URL (see setup instructions).
+   ============================================ */
+const STATUS_API = "https://script.google.com/macros/s/AKfycbzZO771l-U_LyvrHtyXRbgKXgZl1FR54pOsZe2fZq4uDnjI1z0m3xsJfak5j6iuxLpWRA/exec";
+
+function maskAadhar(aadhar){
+  const digits = String(aadhar || "").replace(/\D/g, "");
+  if (digits.length < 4) return "XXXX-XXXX-XXXX";
+  const last4 = digits.slice(-4);
+  return `XXXX-XXXX-${last4}`;
+}
+
+function studentLogin(){
+  const username = document.getElementById("statusUsername").value.trim();
+  const password = document.getElementById("statusPassword").value.trim();
+  const statusMsg = document.getElementById("statusMsg");
+
+  if (!username || !password){
+    statusMsg.textContent = "Please enter both username and password.";
+    return;
+  }
+
+  statusMsg.innerHTML = '<span class="loader" style="margin:0.5rem auto;"></span>';
+
+  fetch(STATUS_API + `?action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`)
+    .then(r => r.json())
+    .then(data => {
+      statusMsg.textContent = "";
+
+      if (data.success){
+        document.getElementById("stName").textContent = data.name || "—";
+        document.getElementById("stFatherName").textContent = data.fatherName || "—";
+        document.getElementById("stMobile").textContent = data.mobile || "—";
+        document.getElementById("stAadhar").textContent = maskAadhar(data.aadhar);
+        document.getElementById("stCourse").textContent = data.course || "—";
+        document.getElementById("stEnrollment").textContent = data.enrollmentNo || "—";
+        document.getElementById("stCourseFees").textContent = data.courseFees || "0";
+        document.getElementById("stSubmittedFees").textContent = data.submittedFees || "0";
+        document.getElementById("stDueFees").textContent = data.dueFees || "0";
+
+        const photoEl = document.getElementById("stPhoto");
+        if (data.photo){
+          photoEl.src = data.photo;
+          photoEl.style.display = "block";
+        } else {
+          photoEl.style.display = "none";
+        }
+
+        document.getElementById("statusLogin").classList.add("hidden");
+        document.getElementById("statusDisplay").classList.remove("hidden");
+      } else {
+        statusMsg.textContent = "❌ Invalid username or password.";
+      }
+    })
+    .catch(() => {
+      statusMsg.textContent = "Status service is not available right now. Please try again later.";
+    });
+}
+
+function statusLogout(){
+  document.getElementById("statusDisplay").classList.add("hidden");
+  document.getElementById("statusLogin").classList.remove("hidden");
+  document.getElementById("statusUsername").value = "";
+  document.getElementById("statusPassword").value = "";
+  document.getElementById("statusMsg").textContent = "";
+}
+
+function printStatus(){
+  window.print();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 
   /* ---------- Boot overlay ---------- */
@@ -135,6 +256,29 @@ document.addEventListener('DOMContentLoaded', () => {
     typeBoot();
     // Safety: never block the page for more than ~2.5s
     setTimeout(() => bootOverlay.classList.add('hide'), 2500);
+  }
+
+  /* ---------- Student Site dropdown (nav) ---------- */
+  const navDropdown = document.querySelector('.nav-dropdown');
+  const dropdownToggle = document.querySelector('.dropdown-toggle');
+  if (navDropdown && dropdownToggle){
+    dropdownToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = navDropdown.classList.toggle('open');
+      dropdownToggle.setAttribute('aria-expanded', isOpen);
+    });
+    document.addEventListener('click', (e) => {
+      if (!navDropdown.contains(e.target)){
+        navDropdown.classList.remove('open');
+        dropdownToggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+    navDropdown.querySelectorAll('.dropdown-menu a').forEach(link => {
+      link.addEventListener('click', () => {
+        navDropdown.classList.remove('open');
+        dropdownToggle.setAttribute('aria-expanded', 'false');
+      });
+    });
   }
 
   /* ---------- Mobile nav toggle ---------- */
@@ -181,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }, { threshold: 0.4 });
   stats.forEach(stat => statObserver.observe(stat));
-
   /* ---------- Course level filter ---------- */
   const levelTabs = document.querySelectorAll('.level-tab');
   const courseCards = document.querySelectorAll('.course-card');
